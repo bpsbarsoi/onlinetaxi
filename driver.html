@@ -269,13 +269,11 @@
     let activeRide = null;
     let seenRequestIds = new Set();
     let audioCtx = null;
-    let ringLoopTimer = null;
     let wakeLock = null;
     let silentKeepAliveAudio = null;
 
-    // ==================== HIGH-PITCH LOUD RINGTONE & BACKGROUND ALERT ====================
+    // ==================== SINGLE-RING HIGH-PITCH & SCREEN-OFF ALERT ====================
     function setupBackgroundAudioKeepAlive() {
-      // Silent 1-second WAV loop so mobile OS keeps audio session active even when minimized/locked
       if (silentKeepAliveAudio) return;
       try {
         const silentWav = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
@@ -319,12 +317,13 @@
           if (audioCtx.state === "suspended") audioCtx.resume();
         }
         setupBackgroundAudioKeepAlive();
-        if (silentKeepAliveAudio && currentDriver?.onlineStatus === "ONLINE") {
+        if (silentKeepAliveAudio && currentDriver?.onlineStatus === "ONLINE" && silentKeepAliveAudio.paused) {
           silentKeepAliveAudio.play().catch(() => {});
         }
       } catch (e) {}
     }
 
+    // Plays ONCE per new ride request
     function playNewRideSound() {
       try {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -332,24 +331,21 @@
         if (!audioCtx) audioCtx = new AudioContextClass();
         if (audioCtx.state === "suspended") audioCtx.resume();
 
-        // Master compressor/gain for maximum piercing loudness without clipping
         const masterGain = audioCtx.createGain();
         masterGain.gain.setValueAtTime(1.0, audioCtx.currentTime);
         masterGain.connect(audioCtx.destination);
 
-        // High-pitch urgent Rapido/Ola style multi-tone ring pattern (1480Hz - 2200Hz)
+        // Single-burst high-pitch urgent ring pattern
         const pattern = [
-          { freq: 1567.98, start: 0.00, duration: 0.14 }, // G6
-          { freq: 2093.00, start: 0.15, duration: 0.16 }, // C7 (Very High Pitch)
-          { freq: 1567.98, start: 0.34, duration: 0.14 }, // G6
-          { freq: 2093.00, start: 0.49, duration: 0.24 }, // C7
-          { freq: 2349.32, start: 0.78, duration: 0.32 }  // D7 (Sharp Urgent Peak)
+          { freq: 1567.98, start: 0.00, duration: 0.14 },
+          { freq: 2093.00, start: 0.15, duration: 0.16 },
+          { freq: 1567.98, start: 0.34, duration: 0.14 },
+          { freq: 2093.00, start: 0.49, duration: 0.24 },
+          { freq: 2349.32, start: 0.78, duration: 0.32 }
         ];
 
         pattern.forEach(n => {
-          // Primary sharp sawtooth oscillator for piercing clarity
           const osc1 = audioCtx.createOscillator();
-          // Secondary square harmonic oscillator for extra volume & punch
           const osc2 = audioCtx.createOscillator();
           const noteGain = audioCtx.createGain();
 
@@ -376,30 +372,6 @@
       } catch (e) {}
     }
 
-    function startContinuousRingAlert() {
-      playNewRideSound();
-      if (navigator.vibrate) {
-        try { navigator.vibrate([500, 150, 500, 150, 700]); } catch (e) {}
-      }
-      if (ringLoopTimer) return;
-      ringLoopTimer = setInterval(() => {
-        playNewRideSound();
-        if (navigator.vibrate) {
-          try { navigator.vibrate([500, 150, 500, 150, 700]); } catch (e) {}
-        }
-      }, 2200);
-    }
-
-    function stopContinuousRingAlert() {
-      if (ringLoopTimer) {
-        clearInterval(ringLoopTimer);
-        ringLoopTimer = null;
-      }
-      if (navigator.vibrate) {
-        try { navigator.vibrate(0); } catch (e) {}
-      }
-    }
-
     function triggerSystemBackgroundNotification(req) {
       try {
         if ("Notification" in window && Notification.permission === "granted") {
@@ -409,7 +381,7 @@
             tag: "ryzride-incoming-" + req.bookingId,
             renotify: true,
             requireInteraction: true,
-            vibrate: [500, 150, 500, 150, 700],
+            vibrate: [400, 150, 400],
             silent: false
           });
           notif.onclick = () => {
@@ -421,26 +393,39 @@
     }
 
     function triggerNewRideAlert(req) {
-      startContinuousRingAlert();
+      // Ring & vibrate ONCE even when screen is off or minimized
+      if (silentKeepAliveAudio && silentKeepAliveAudio.paused) {
+        silentKeepAliveAudio.play().catch(() => {});
+      }
+      playNewRideSound();
+      if (navigator.vibrate) {
+        try { navigator.vibrate([400, 150, 400]); } catch (e) {}
+      }
       triggerSystemBackgroundNotification(req);
 
-      Swal.fire({
-        toast: true,
-        position: "top",
-        icon: "warning",
-        title: `🚨 Nayi Ride Aayi! • ₹${req.fare}`,
-        html: `<div class="small text-start"><b>${req.vehicleType}</b> (${req.distanceKm} KM)<br/>Pickup: ${req.pickup?.address || ""}</div>`,
-        showConfirmButton: false,
-        timer: 6000,
-        timerProgressBar: true
-      });
+      if (document.visibilityState === "visible") {
+        Swal.fire({
+          toast: true,
+          position: "top",
+          icon: "warning",
+          title: `🚨 Nayi Ride Aayi! • ₹${req.fare}`,
+          html: `<div class="small text-start"><b>${req.vehicleType}</b> (${req.distanceKm} KM)<br/>Pickup: ${req.pickup?.address || ""}</div>`,
+          showConfirmButton: false,
+          timer: 5000,
+          timerProgressBar: true
+        });
+      }
     }
 
-    // Re-acquire WakeLock & AudioContext if driver returns from minimized/locked screen
+    // Keep audio alive even when screen turns off / app goes background while ONLINE
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible" && currentDriver?.onlineStatus === "ONLINE") {
-        unlockAudioAlert();
-        requestWakeLock();
+      if (currentDriver?.onlineStatus === "ONLINE") {
+        if (document.visibilityState === "visible") {
+          unlockAudioAlert();
+          requestWakeLock();
+        } else if (silentKeepAliveAudio && silentKeepAliveAudio.paused) {
+          silentKeepAliveAudio.play().catch(() => {});
+        }
       }
     });
 
@@ -702,7 +687,6 @@
     }
 
     function logoutDriver() {
-      stopContinuousRingAlert();
       releaseWakeLock();
       if (silentKeepAliveAudio) silentKeepAliveAudio.pause();
       localStorage.removeItem("btx_driver");
@@ -783,7 +767,6 @@
           startLocationBroadcasting();
           startFeedPolling();
         } else {
-          stopContinuousRingAlert();
           releaseWakeLock();
           if (silentKeepAliveAudio) silentKeepAliveAudio.pause();
           if (locationWatchId) navigator.geolocation.clearWatch(locationWatchId);
@@ -829,7 +812,7 @@
       const { incomingRequests = [], activeRide: ongoing } = res.data;
       const container = document.getElementById("rideFeedContainer");
 
-      // Nayi incoming ride aane par high-pitch loud sound + system notification bajayein
+      // Nayi incoming ride aane par ek baar sound + notification alert bajayein
       const currentIds = new Set(incomingRequests.map(r => r.bookingId));
       incomingRequests.forEach(req => {
         if (!seenRequestIds.has(req.bookingId)) {
@@ -842,11 +825,6 @@
       // Jo requests expire/cancel ho gayi unhe set se hata dein
       for (const oldId of seenRequestIds) {
         if (!currentIds.has(oldId)) seenRequestIds.delete(oldId);
-      }
-
-      // Agar koi pending incoming request nahi bachi ya ongoing ride chal rahi hai to ringtone band karein
-      if (ongoing || incomingRequests.length === 0) {
-        stopContinuousRingAlert();
       }
 
       if (ongoing) {
@@ -920,7 +898,6 @@
 
     async function acceptRide(bookingId) {
       unlockAudioAlert();
-      stopContinuousRingAlert();
       Swal.showLoading();
       const res = await callApi({ action: "acceptBooking", bookingId, driverId: currentDriver.driverId });
       Swal.close();
@@ -932,10 +909,7 @@
       }
     }
 
-    async function rejectRide(bookingId) {
-      stopContinuousRingAlert();
-      fetchDriverFeed();
-    }
+    async function rejectRide(bookingId) { fetchDriverFeed(); }
 
     async function updateRideStatus(bookingId, status) {
       const res = await callApi({ action: "updateBookingStatus", bookingId, driverId: currentDriver.driverId, status });
