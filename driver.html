@@ -266,6 +266,7 @@
     let driverMarker = null;
     let locationWatchId = null;
     let feedPollingTimer = null;
+    let pollingWorker = null;
     let activeRide = null;
     let seenRequestIds = new Set();
     let audioCtx = null;
@@ -323,13 +324,28 @@
       } catch (e) {}
     }
 
+    function ensureAudioReadyForAlert() {
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          if (!audioCtx) audioCtx = new AudioContextClass();
+          if (audioCtx.state === "suspended") {
+            audioCtx.resume().catch(() => {});
+          }
+        }
+        setupBackgroundAudioKeepAlive();
+        if (silentKeepAliveAudio && silentKeepAliveAudio.paused) {
+          silentKeepAliveAudio.play().catch(() => {});
+        }
+      } catch (e) {}
+    }
+
     // Plays ONCE per new ride request
     function playNewRideSound() {
       try {
+        ensureAudioReadyForAlert();
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextClass) return;
-        if (!audioCtx) audioCtx = new AudioContextClass();
-        if (audioCtx.state === "suspended") audioCtx.resume();
+        if (!AudioContextClass || !audioCtx) return;
 
         const masterGain = audioCtx.createGain();
         masterGain.gain.setValueAtTime(1.0, audioCtx.currentTime);
@@ -394,9 +410,7 @@
 
     function triggerNewRideAlert(req) {
       // Ring & vibrate ONCE even when screen is off or minimized
-      if (silentKeepAliveAudio && silentKeepAliveAudio.paused) {
-        silentKeepAliveAudio.play().catch(() => {});
-      }
+      ensureAudioReadyForAlert();
       playNewRideSound();
       if (navigator.vibrate) {
         try { navigator.vibrate([400, 150, 400]); } catch (e) {}
@@ -417,14 +431,57 @@
       }
     }
 
-    // Keep audio alive even when screen turns off / app goes background while ONLINE
+    function createPollingWorker(intervalMs, onTick) {
+      try {
+        if (typeof Worker !== "undefined") {
+          const code = `
+            let timer = null;
+            self.onmessage = function(e) {
+              if (e.data === "start") {
+                if (timer) clearInterval(timer);
+                timer = setInterval(() => self.postMessage("tick"), ${Number(intervalMs) || 5000});
+              } else if (e.data === "stop") {
+                if (timer) { clearInterval(timer); timer = null; }
+              }
+            };
+          `;
+          const blob = new Blob([code], { type: "application/javascript" });
+          const url = URL.createObjectURL(blob);
+          const worker = new Worker(url);
+          worker.onmessage = (e) => {
+            if (e.data === "tick") onTick();
+          };
+          worker.postMessage("start");
+          return worker;
+        }
+      } catch (e) {}
+      return null;
+    }
+
+    function stopFeedPolling() {
+      if (feedPollingTimer) {
+        clearInterval(feedPollingTimer);
+        feedPollingTimer = null;
+      }
+      if (pollingWorker) {
+        try {
+          pollingWorker.postMessage("stop");
+          pollingWorker.terminate();
+        } catch (e) {}
+        pollingWorker = null;
+      }
+    }
+
+    // Keep audio & polling synced when screen turns off / app goes background while ONLINE
     document.addEventListener("visibilitychange", () => {
       if (currentDriver?.onlineStatus === "ONLINE") {
         if (document.visibilityState === "visible") {
           unlockAudioAlert();
           requestWakeLock();
-        } else if (silentKeepAliveAudio && silentKeepAliveAudio.paused) {
-          silentKeepAliveAudio.play().catch(() => {});
+          fetchDriverFeed();
+        } else {
+          ensureAudioReadyForAlert();
+          fetchDriverFeed();
         }
       }
     });
@@ -690,7 +747,7 @@
       releaseWakeLock();
       if (silentKeepAliveAudio) silentKeepAliveAudio.pause();
       localStorage.removeItem("btx_driver");
-      if (feedPollingTimer) clearInterval(feedPollingTimer);
+      stopFeedPolling();
       if (locationWatchId) navigator.geolocation.clearWatch(locationWatchId);
       location.reload();
     }
@@ -770,7 +827,7 @@
           releaseWakeLock();
           if (silentKeepAliveAudio) silentKeepAliveAudio.pause();
           if (locationWatchId) navigator.geolocation.clearWatch(locationWatchId);
-          if (feedPollingTimer) clearInterval(feedPollingTimer);
+          stopFeedPolling();
           seenRequestIds.clear();
           document.getElementById("rideFeedContainer").innerHTML = `<div class="card-box text-center text-muted py-4"><p class="mb-0">You are offline.</p></div>`;
         }
@@ -800,7 +857,8 @@
 
     function startFeedPolling() {
       fetchDriverFeed();
-      if (feedPollingTimer) clearInterval(feedPollingTimer);
+      stopFeedPolling();
+      pollingWorker = createPollingWorker(CONFIG.POLLING_INTERVAL_MS, fetchDriverFeed);
       feedPollingTimer = setInterval(fetchDriverFeed, CONFIG.POLLING_INTERVAL_MS);
     }
 
