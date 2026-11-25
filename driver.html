@@ -266,42 +266,12 @@
     let driverMarker = null;
     let locationWatchId = null;
     let feedPollingTimer = null;
-    let pollingWorker = null;
     let activeRide = null;
     let seenRequestIds = new Set();
+    let activeNotifications = new Map();
     let audioCtx = null;
-    let wakeLock = null;
-    let silentKeepAliveAudio = null;
 
-    // ==================== SINGLE-RING HIGH-PITCH & SCREEN-OFF ALERT ====================
-    function setupBackgroundAudioKeepAlive() {
-      if (silentKeepAliveAudio) return;
-      try {
-        const silentWav = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
-        silentKeepAliveAudio = new Audio(silentWav);
-        silentKeepAliveAudio.loop = true;
-        silentKeepAliveAudio.volume = 0.01;
-      } catch (e) {}
-    }
-
-    async function requestWakeLock() {
-      try {
-        if ("wakeLock" in navigator && !wakeLock) {
-          wakeLock = await navigator.wakeLock.request("screen");
-          wakeLock.addEventListener("release", () => { wakeLock = null; });
-        }
-      } catch (e) {}
-    }
-
-    function releaseWakeLock() {
-      try {
-        if (wakeLock) {
-          wakeLock.release();
-          wakeLock = null;
-        }
-      } catch (e) {}
-    }
-
+    // ==================== SINGLE-SOUND PERSISTENT NOTIFICATION ALERT ====================
     async function requestNotificationPermission() {
       try {
         if ("Notification" in window && Notification.permission === "default") {
@@ -313,45 +283,24 @@
     function unlockAudioAlert() {
       try {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (AudioContextClass) {
-          if (!audioCtx) audioCtx = new AudioContextClass();
-          if (audioCtx.state === "suspended") audioCtx.resume();
-        }
-        setupBackgroundAudioKeepAlive();
-        if (silentKeepAliveAudio && currentDriver?.onlineStatus === "ONLINE" && silentKeepAliveAudio.paused) {
-          silentKeepAliveAudio.play().catch(() => {});
-        }
-      } catch (e) {}
-    }
-
-    function ensureAudioReadyForAlert() {
-      try {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (AudioContextClass) {
-          if (!audioCtx) audioCtx = new AudioContextClass();
-          if (audioCtx.state === "suspended") {
-            audioCtx.resume().catch(() => {});
-          }
-        }
-        setupBackgroundAudioKeepAlive();
-        if (silentKeepAliveAudio && silentKeepAliveAudio.paused) {
-          silentKeepAliveAudio.play().catch(() => {});
-        }
+        if (!AudioContextClass) return;
+        if (!audioCtx) audioCtx = new AudioContextClass();
+        if (audioCtx.state === "suspended") audioCtx.resume();
       } catch (e) {}
     }
 
     // Plays ONCE per new ride request
     function playNewRideSound() {
       try {
-        ensureAudioReadyForAlert();
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextClass || !audioCtx) return;
+        if (!AudioContextClass) return;
+        if (!audioCtx) audioCtx = new AudioContextClass();
+        if (audioCtx.state === "suspended") audioCtx.resume();
 
         const masterGain = audioCtx.createGain();
         masterGain.gain.setValueAtTime(1.0, audioCtx.currentTime);
         masterGain.connect(audioCtx.destination);
 
-        // Single-burst high-pitch urgent ring pattern
         const pattern = [
           { freq: 1567.98, start: 0.00, duration: 0.14 },
           { freq: 2093.00, start: 0.15, duration: 0.16 },
@@ -388,103 +337,70 @@
       } catch (e) {}
     }
 
-    function triggerSystemBackgroundNotification(req) {
+    function showPersistentRideNotification(req) {
       try {
         if ("Notification" in window && Notification.permission === "granted") {
+          const notifKey = String(req.bookingId);
+          if (activeNotifications.has(notifKey)) return;
+
           const notif = new Notification(`🚨 Nayi Ride Aayi! • ₹${req.fare}`, {
             body: `${req.vehicleType} (${req.distanceKm} KM)\nPickup: ${req.pickup?.address || ""}`,
             icon: "https://cdn-icons-png.flaticon.com/512/3198/3198336.png",
-            tag: "ryzride-incoming-" + req.bookingId,
-            renotify: true,
+            tag: "ryzride-incoming-" + notifKey,
             requireInteraction: true,
-            vibrate: [400, 150, 400],
             silent: false
           });
+
           notif.onclick = () => {
             window.focus();
+            activeNotifications.delete(notifKey);
             notif.close();
           };
+          notif.onclose = () => {
+            activeNotifications.delete(notifKey);
+          };
+
+          activeNotifications.set(notifKey, notif);
         }
+      } catch (e) {}
+    }
+
+    function clearRideNotifications(bookingIds = null) {
+      try {
+        if (!bookingIds) {
+          activeNotifications.forEach(n => { try { n.close(); } catch (e) {} });
+          activeNotifications.clear();
+          return;
+        }
+        bookingIds.forEach(id => {
+          const key = String(id);
+          const n = activeNotifications.get(key);
+          if (n) {
+            try { n.close(); } catch (e) {}
+            activeNotifications.delete(key);
+          }
+        });
       } catch (e) {}
     }
 
     function triggerNewRideAlert(req) {
-      // Ring & vibrate ONCE even when screen is off or minimized
-      ensureAudioReadyForAlert();
       playNewRideSound();
       if (navigator.vibrate) {
-        try { navigator.vibrate([400, 150, 400]); } catch (e) {}
+        try { navigator.vibrate([200, 100, 200]); } catch (e) {}
       }
-      triggerSystemBackgroundNotification(req);
+      showPersistentRideNotification(req);
 
-      if (document.visibilityState === "visible") {
-        Swal.fire({
-          toast: true,
-          position: "top",
-          icon: "warning",
-          title: `🚨 Nayi Ride Aayi! • ₹${req.fare}`,
-          html: `<div class="small text-start"><b>${req.vehicleType}</b> (${req.distanceKm} KM)<br/>Pickup: ${req.pickup?.address || ""}</div>`,
-          showConfirmButton: false,
-          timer: 5000,
-          timerProgressBar: true
-        });
-      }
+      Swal.fire({
+        toast: true,
+        position: "top",
+        icon: "info",
+        title: `Nayi Ride Aayi! • ₹${req.fare}`,
+        html: `<div class="small text-start"><b>${req.vehicleType}</b> (${req.distanceKm} KM)<br/>Pickup: ${req.pickup?.address || ""}</div>`,
+        showConfirmButton: false,
+        timer: 4500,
+        timerProgressBar: true
+      });
     }
-
-    function createPollingWorker(intervalMs, onTick) {
-      try {
-        if (typeof Worker !== "undefined") {
-          const code = `
-            let timer = null;
-            self.onmessage = function(e) {
-              if (e.data === "start") {
-                if (timer) clearInterval(timer);
-                timer = setInterval(() => self.postMessage("tick"), ${Number(intervalMs) || 5000});
-              } else if (e.data === "stop") {
-                if (timer) { clearInterval(timer); timer = null; }
-              }
-            };
-          `;
-          const blob = new Blob([code], { type: "application/javascript" });
-          const url = URL.createObjectURL(blob);
-          const worker = new Worker(url);
-          worker.onmessage = (e) => {
-            if (e.data === "tick") onTick();
-          };
-          worker.postMessage("start");
-          return worker;
-        }
-      } catch (e) {}
-      return null;
-    }
-
-    function stopFeedPolling() {
-      if (feedPollingTimer) {
-        clearInterval(feedPollingTimer);
-        feedPollingTimer = null;
-      }
-      if (pollingWorker) {
-        try {
-          pollingWorker.postMessage("stop");
-          pollingWorker.terminate();
-        } catch (e) {}
-        pollingWorker = null;
-      }
-    }
-
-    // Keep audio & polling synced when screen turns off / app goes background while ONLINE
-    document.addEventListener("visibilitychange", () => {
-      if (currentDriver?.onlineStatus === "ONLINE") {
-        if (document.visibilityState === "visible") {
-          unlockAudioAlert();
-          requestWakeLock();
-          fetchDriverFeed();
-        } else {
-          ensureAudioReadyForAlert();
-          fetchDriverFeed();
-        }
-      }
-    });
 
     // ==================== PREMIUM OLA / UBER / RAPIDO STYLE VEHICLE ICONS ====================
     function getVehicleSymbolHtml(vehicleType, size = 40, isMapPin = false) {
@@ -744,10 +660,9 @@
     }
 
     function logoutDriver() {
-      releaseWakeLock();
-      if (silentKeepAliveAudio) silentKeepAliveAudio.pause();
+      clearRideNotifications();
       localStorage.removeItem("btx_driver");
-      stopFeedPolling();
+      if (feedPollingTimer) clearInterval(feedPollingTimer);
       if (locationWatchId) navigator.geolocation.clearWatch(locationWatchId);
       location.reload();
     }
@@ -819,15 +734,12 @@
         if (status === "ONLINE") {
           seenRequestIds.clear();
           requestNotificationPermission();
-          requestWakeLock();
-          if (silentKeepAliveAudio) silentKeepAliveAudio.play().catch(() => {});
           startLocationBroadcasting();
           startFeedPolling();
         } else {
-          releaseWakeLock();
-          if (silentKeepAliveAudio) silentKeepAliveAudio.pause();
+          clearRideNotifications();
           if (locationWatchId) navigator.geolocation.clearWatch(locationWatchId);
-          stopFeedPolling();
+          if (feedPollingTimer) clearInterval(feedPollingTimer);
           seenRequestIds.clear();
           document.getElementById("rideFeedContainer").innerHTML = `<div class="card-box text-center text-muted py-4"><p class="mb-0">You are offline.</p></div>`;
         }
@@ -857,8 +769,7 @@
 
     function startFeedPolling() {
       fetchDriverFeed();
-      stopFeedPolling();
-      pollingWorker = createPollingWorker(CONFIG.POLLING_INTERVAL_MS, fetchDriverFeed);
+      if (feedPollingTimer) clearInterval(feedPollingTimer);
       feedPollingTimer = setInterval(fetchDriverFeed, CONFIG.POLLING_INTERVAL_MS);
     }
 
@@ -870,20 +781,26 @@
       const { incomingRequests = [], activeRide: ongoing } = res.data;
       const container = document.getElementById("rideFeedContainer");
 
-      // Nayi incoming ride aane par ek baar sound + notification alert bajayein
-      const currentIds = new Set(incomingRequests.map(r => r.bookingId));
+      // Nayi incoming ride aane par ek baar sound + persistent notification alert bajayein
+      const currentIds = new Set(incomingRequests.map(r => String(r.bookingId)));
       incomingRequests.forEach(req => {
-        if (!seenRequestIds.has(req.bookingId)) {
-          seenRequestIds.add(req.bookingId);
+        const reqId = String(req.bookingId);
+        if (!seenRequestIds.has(reqId)) {
+          seenRequestIds.add(reqId);
           if (!ongoing) {
             triggerNewRideAlert(req);
           }
         }
       });
-      // Jo requests expire/cancel ho gayi unhe set se hata dein
+      // Jo requests expire/cancel ho gayi unhe set aur active notifications se hata dein
+      const expiredIds = [];
       for (const oldId of seenRequestIds) {
-        if (!currentIds.has(oldId)) seenRequestIds.delete(oldId);
+        if (!currentIds.has(oldId)) {
+          seenRequestIds.delete(oldId);
+          expiredIds.push(oldId);
+        }
       }
+      if (expiredIds.length > 0) clearRideNotifications(expiredIds);
 
       if (ongoing) {
         const prevBookingId = activeRide ? activeRide.bookingId : null;
@@ -956,6 +873,7 @@
 
     async function acceptRide(bookingId) {
       unlockAudioAlert();
+      clearRideNotifications([bookingId]);
       Swal.showLoading();
       const res = await callApi({ action: "acceptBooking", bookingId, driverId: currentDriver.driverId });
       Swal.close();
@@ -967,7 +885,10 @@
       }
     }
 
-    async function rejectRide(bookingId) { fetchDriverFeed(); }
+    async function rejectRide(bookingId) {
+      clearRideNotifications([bookingId]);
+      fetchDriverFeed();
+    }
 
     async function updateRideStatus(bookingId, status) {
       const res = await callApi({ action: "updateBookingStatus", bookingId, driverId: currentDriver.driverId, status });
