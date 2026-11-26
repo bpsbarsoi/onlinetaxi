@@ -271,7 +271,7 @@
     let activeNotifications = new Map();
     let audioCtx = null;
 
-    // ==================== NATIVE BRIDGE + SINGLE-SOUND NOTIFICATION ALERT ====================
+    // ==================== SINGLE-SOUND PERSISTENT NOTIFICATION ALERT ====================
     function hasNativeBridge() {
       return Boolean(window.RyzRideNative && typeof window.RyzRideNative.onNewRide === "function");
     }
@@ -293,7 +293,7 @@
       } catch (e) {}
     }
 
-    // Plays ONCE per new ride request
+    // Plays ONCE per new ride request (Aapka purana sound pattern)
     function playNewRideSound() {
       try {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -348,21 +348,17 @@
       const distanceKm = String(req.distanceKm ?? "");
       const pickupAddress = String(req.pickup?.address || "");
 
-      // Sketchware Native Bridge (plays single sound + shows persistent ongoing notification)
       if (hasNativeBridge()) {
         try {
           window.RyzRideNative.onNewRide(bookingId, fare, vehicleType, distanceKm, pickupAddress);
-          return;
         } catch (e) {}
       }
 
-      // Browser fallback
-      playNewRideSound();
       try {
         if ("Notification" in window && Notification.permission === "granted") {
           if (activeNotifications.has(bookingId)) return;
 
-          const notif = new Notification(`🚨 Nayi Ride Aayi! • ₹${fare}`, {
+          const notif = new Notification(`🚨 New ride aayi! • ₹${fare}`, {
             body: `${vehicleType} (${distanceKm} KM)\nPickup: ${pickupAddress}`,
             icon: "https://cdn-icons-png.flaticon.com/512/3198/3198336.png",
             tag: "ryzride-incoming-" + bookingId,
@@ -415,20 +411,25 @@
     }
 
     function triggerNewRideAlert(req) {
+      playNewRideSound();
       if (navigator.vibrate) {
         try { navigator.vibrate([200, 100, 200]); } catch (e) {}
       }
       showPersistentRideNotification(req);
 
       Swal.fire({
-        toast: true,
-        position: "top",
         icon: "info",
-        title: `Nayi Ride Aayi! • ₹${req.fare}`,
-        html: `<div class="small text-start"><b>${req.vehicleType}</b> (${req.distanceKm} KM)<br/>Pickup: ${req.pickup?.address || ""}</div>`,
-        showConfirmButton: false,
-        timer: 4500,
-        timerProgressBar: true
+        title: "New ride aayi",
+        html: `
+          <div class="text-start small">
+            <div><b>Fare:</b> ₹${req.fare ?? "0"}</div>
+            <div><b>Vehicle:</b> ${req.vehicleType || "Ride"} (${req.distanceKm ?? ""} KM)</div>
+            <div><b>Pickup:</b> ${req.pickup?.address || ""}</div>
+          </div>
+        `,
+        confirmButtonText: "OK",
+        allowOutsideClick: false,
+        allowEscapeKey: false
       });
     }
 
@@ -471,7 +472,6 @@
     window.addEventListener("pagehide", () => sendKeepaliveOffline(true));
     window.addEventListener("beforeunload", () => sendKeepaliveOffline(true));
     document.addEventListener("visibilitychange", () => {
-      // Agar active ride nahi hai aur app hidden ho gaya ya band ho raha ho
       if (document.visibilityState === "hidden" && !activeRide && currentDriver?.onlineStatus === "ONLINE") {
         sendKeepaliveOffline(false);
       }
