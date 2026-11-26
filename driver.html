@@ -271,10 +271,14 @@
     let activeNotifications = new Map();
     let audioCtx = null;
 
-    // ==================== SINGLE-SOUND PERSISTENT NOTIFICATION ALERT ====================
+    // ==================== NATIVE BRIDGE + SINGLE-SOUND NOTIFICATION ALERT ====================
+    function hasNativeBridge() {
+      return Boolean(window.RyzRideNative && typeof window.RyzRideNative.onNewRide === "function");
+    }
+
     async function requestNotificationPermission() {
       try {
-        if ("Notification" in window && Notification.permission === "default") {
+        if (!hasNativeBridge() && "Notification" in window && Notification.permission === "default") {
           await Notification.requestPermission();
         }
       } catch (e) {}
@@ -338,34 +342,61 @@
     }
 
     function showPersistentRideNotification(req) {
+      const bookingId = String(req.bookingId || "");
+      const fare = String(req.fare ?? "0");
+      const vehicleType = String(req.vehicleType || "Ride");
+      const distanceKm = String(req.distanceKm ?? "");
+      const pickupAddress = String(req.pickup?.address || "");
+
+      // Sketchware Native Bridge (plays single sound + shows persistent ongoing notification)
+      if (hasNativeBridge()) {
+        try {
+          window.RyzRideNative.onNewRide(bookingId, fare, vehicleType, distanceKm, pickupAddress);
+          return;
+        } catch (e) {}
+      }
+
+      // Browser fallback
+      playNewRideSound();
       try {
         if ("Notification" in window && Notification.permission === "granted") {
-          const notifKey = String(req.bookingId);
-          if (activeNotifications.has(notifKey)) return;
+          if (activeNotifications.has(bookingId)) return;
 
-          const notif = new Notification(`🚨 Nayi Ride Aayi! • ₹${req.fare}`, {
-            body: `${req.vehicleType} (${req.distanceKm} KM)\nPickup: ${req.pickup?.address || ""}`,
+          const notif = new Notification(`🚨 Nayi Ride Aayi! • ₹${fare}`, {
+            body: `${vehicleType} (${distanceKm} KM)\nPickup: ${pickupAddress}`,
             icon: "https://cdn-icons-png.flaticon.com/512/3198/3198336.png",
-            tag: "ryzride-incoming-" + notifKey,
+            tag: "ryzride-incoming-" + bookingId,
             requireInteraction: true,
             silent: false
           });
 
           notif.onclick = () => {
             window.focus();
-            activeNotifications.delete(notifKey);
+            activeNotifications.delete(bookingId);
             notif.close();
           };
           notif.onclose = () => {
-            activeNotifications.delete(notifKey);
+            activeNotifications.delete(bookingId);
           };
 
-          activeNotifications.set(notifKey, notif);
+          activeNotifications.set(bookingId, notif);
         }
       } catch (e) {}
     }
 
     function clearRideNotifications(bookingIds = null) {
+      try {
+        if (window.RyzRideNative && typeof window.RyzRideNative.clearRideNotification === "function") {
+          if (!bookingIds) {
+            window.RyzRideNative.clearRideNotification("");
+          } else {
+            bookingIds.forEach(id => {
+              try { window.RyzRideNative.clearRideNotification(String(id)); } catch (e) {}
+            });
+          }
+        }
+      } catch (e) {}
+
       try {
         if (!bookingIds) {
           activeNotifications.forEach(n => { try { n.close(); } catch (e) {} });
@@ -384,7 +415,6 @@
     }
 
     function triggerNewRideAlert(req) {
-      playNewRideSound();
       if (navigator.vibrate) {
         try { navigator.vibrate([200, 100, 200]); } catch (e) {}
       }
@@ -401,6 +431,51 @@
         timerProgressBar: true
       });
     }
+
+    // ==================== OFFLINE ON EXIT / BACKGROUND ====================
+    function sendKeepaliveOffline(forceOfflineUi = false) {
+      if (!currentDriver || !currentDriver.driverId) return;
+      if (currentDriver.onlineStatus !== "ONLINE") return;
+
+      const payload = JSON.stringify({
+        action: "updateDriverStatus",
+        driverId: currentDriver.driverId,
+        status: "OFFLINE",
+        lastSeen: Date.now()
+      });
+
+      try {
+        if (navigator.sendBeacon) {
+          const blob = new Blob([payload], { type: "text/plain;charset=UTF-8" });
+          navigator.sendBeacon(CONFIG.API_URL, blob);
+        } else {
+          fetch(CONFIG.API_URL, {
+            method: "POST",
+            body: payload,
+            keepalive: true
+          }).catch(() => {});
+        }
+      } catch (e) {}
+
+      if (forceOfflineUi) {
+        currentDriver.onlineStatus = "OFFLINE";
+        const sw = document.getElementById("onlineSwitch");
+        if (sw) sw.checked = false;
+        const titleEl = document.getElementById("statusTitleText");
+        const subEl = document.getElementById("statusSubText");
+        if (titleEl) titleEl.innerText = "You are OFFLINE";
+        if (subEl) subEl.innerText = "Go online to receive ride requests";
+      }
+    }
+
+    window.addEventListener("pagehide", () => sendKeepaliveOffline(true));
+    window.addEventListener("beforeunload", () => sendKeepaliveOffline(true));
+    document.addEventListener("visibilitychange", () => {
+      // Agar active ride nahi hai aur app hidden ho gaya ya band ho raha ho
+      if (document.visibilityState === "hidden" && !activeRide && currentDriver?.onlineStatus === "ONLINE") {
+        sendKeepaliveOffline(false);
+      }
+    });
 
     // ==================== PREMIUM OLA / UBER / RAPIDO STYLE VEHICLE ICONS ====================
     function getVehicleSymbolHtml(vehicleType, size = 40, isMapPin = false) {
@@ -660,6 +735,7 @@
     }
 
     function logoutDriver() {
+      sendKeepaliveOffline(false);
       clearRideNotifications();
       localStorage.removeItem("btx_driver");
       if (feedPollingTimer) clearInterval(feedPollingTimer);
@@ -723,7 +799,12 @@
       unlockAudioAlert();
       const status = sw.checked ? "ONLINE" : "OFFLINE";
       Swal.showLoading();
-      const res = await callApi({ action: "updateDriverStatus", driverId: currentDriver.driverId, status });
+      const res = await callApi({
+        action: "updateDriverStatus",
+        driverId: currentDriver.driverId,
+        status,
+        lastSeen: Date.now()
+      });
       Swal.close();
 
       if (res.success) {
@@ -762,6 +843,7 @@
           action: "updateDriverLocation",
           driverId: currentDriver.driverId,
           lat, lng,
+          lastSeen: Date.now(),
           bookingId: activeRide ? activeRide.bookingId : ""
         });
       }, err => console.error(err), { enableHighAccuracy: true });
@@ -807,7 +889,6 @@
         const prevStatus = activeRide ? activeRide.status : null;
         activeRide = ongoing;
 
-        // Agar same active ride aur same status chal raha hai, aur driver OTP box mein type kar raha hai, to DOM ko overwrite na karein
         const existingOtpInput = document.getElementById("otpInput");
         const isTypingOtp = existingOtpInput && (document.activeElement === existingOtpInput || existingOtpInput.value.trim().length > 0);
         if (prevBookingId === ongoing.bookingId && prevStatus === ongoing.status && existingOtpInput && isTypingOtp) {
