@@ -218,6 +218,14 @@
         </div>
       </div>
 
+      <!-- COMPLETED RIDE HISTORY -->
+      <div class="mt-3">
+        <h6 class="fw-bold mb-2">Completed Ride History</h6>
+        <div id="driverRideHistoryContainer">
+          <div class="card-box text-center text-muted py-3 small">No past rides yet.</div>
+        </div>
+      </div>
+
     </div>
 
     <!-- ==================== 3. EARNINGS & WALLET SECTION ==================== -->
@@ -268,6 +276,7 @@
     let feedPollingTimer = null;
     let activeRide = null;
     let seenRequestIds = new Set();
+    let rejectedBookingIds = new Set();
     let activeNotifications = new Map();
     let audioCtx = null;
 
@@ -293,7 +302,7 @@
       } catch (e) {}
     }
 
-    // Plays ONCE per new ride request (Aapka purana sound pattern)
+    // Plays ONCE per new ride request
     function playNewRideSound() {
       try {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -433,50 +442,6 @@
       });
     }
 
-    // ==================== OFFLINE ON EXIT / BACKGROUND ====================
-    function sendKeepaliveOffline(forceOfflineUi = false) {
-      if (!currentDriver || !currentDriver.driverId) return;
-      if (currentDriver.onlineStatus !== "ONLINE") return;
-
-      const payload = JSON.stringify({
-        action: "updateDriverStatus",
-        driverId: currentDriver.driverId,
-        status: "OFFLINE",
-        lastSeen: Date.now()
-      });
-
-      try {
-        if (navigator.sendBeacon) {
-          const blob = new Blob([payload], { type: "text/plain;charset=UTF-8" });
-          navigator.sendBeacon(CONFIG.API_URL, blob);
-        } else {
-          fetch(CONFIG.API_URL, {
-            method: "POST",
-            body: payload,
-            keepalive: true
-          }).catch(() => {});
-        }
-      } catch (e) {}
-
-      if (forceOfflineUi) {
-        currentDriver.onlineStatus = "OFFLINE";
-        const sw = document.getElementById("onlineSwitch");
-        if (sw) sw.checked = false;
-        const titleEl = document.getElementById("statusTitleText");
-        const subEl = document.getElementById("statusSubText");
-        if (titleEl) titleEl.innerText = "You are OFFLINE";
-        if (subEl) subEl.innerText = "Go online to receive ride requests";
-      }
-    }
-
-    window.addEventListener("pagehide", () => sendKeepaliveOffline(true));
-    window.addEventListener("beforeunload", () => sendKeepaliveOffline(true));
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "hidden" && !activeRide && currentDriver?.onlineStatus === "ONLINE") {
-        sendKeepaliveOffline(false);
-      }
-    });
-
     // ==================== PREMIUM OLA / UBER / RAPIDO STYLE VEHICLE ICONS ====================
     function getVehicleSymbolHtml(vehicleType, size = 40, isMapPin = false) {
       const t = (vehicleType || "").toLowerCase().trim();
@@ -485,7 +450,6 @@
         ? "display:flex;align-items:center;justify-content:center;"
         : "display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;";
 
-      // 1. CAR / CAB (UberGo / Ola Mini 3D White Sedan)
       if (t.includes("car") || t.includes("cab") || t.includes("sedan") || t.includes("suv") || t.includes("taxi")) {
         return `<div style="${wrapStyle}">
           <svg viewBox="0 0 96 64" width="${px * 1.35}" height="${px}" style="filter:drop-shadow(0 4px 6px rgba(17,24,39,0.18));" aria-hidden="true">
@@ -523,7 +487,6 @@
         </div>`;
       }
 
-      // 2. E-RIKSHAW / TOTO (Modern Blue & Silver Passenger E-Rickshaw)
       if (t.includes("e-rik") || t.includes("erik") || t.includes("toto")) {
         return `<div style="${wrapStyle}">
           <svg viewBox="0 0 96 64" width="${px * 1.3}" height="${px}" style="filter:drop-shadow(0 4px 6px rgba(17,24,39,0.18));" aria-hidden="true">
@@ -559,7 +522,6 @@
         </div>`;
       }
 
-      // 3. AUTO RICKSHAW (Ola / Uber / Rapido Iconic Green & Yellow 3-Wheeler)
       if (t.includes("auto") || t.includes("rikshaw") || t.includes("rickshaw")) {
         return `<div style="${wrapStyle}">
           <svg viewBox="0 0 96 64" width="${px * 1.3}" height="${px}" style="filter:drop-shadow(0 4px 6px rgba(17,24,39,0.18));" aria-hidden="true">
@@ -592,7 +554,6 @@
         </div>`;
       }
 
-      // 4. SCOOTER (Sleek Modern Electric / Urban Scooter)
       if (t.includes("scoot")) {
         return `<div style="${wrapStyle}">
           <svg viewBox="0 0 96 64" width="${px * 1.3}" height="${px}" style="filter:drop-shadow(0 4px 6px rgba(17,24,39,0.18));" aria-hidden="true">
@@ -618,7 +579,6 @@
         </div>`;
       }
 
-      // 5. BIKE / MOTO (SVG Repo Noto Emoji Motorcycle)
       const bikePx = isMapPin ? 28 : Math.round(px * 1.15);
       return `<div style="${wrapStyle}">
         <svg viewBox="0 0 128 128" width="${bikePx}" height="${bikePx}" style="display:block;filter:drop-shadow(0 5px 8px rgba(17,24,39,0.18));" aria-hidden="true">
@@ -662,6 +622,45 @@
         iconSize: [40, 40],
         iconAnchor: [20, 20]
       });
+    }
+
+    function openMapsNavigation(lat, lng, address = "") {
+      const hasCoords = lat !== "" && lat !== null && lat !== undefined && !isNaN(parseFloat(lat)) &&
+                        lng !== "" && lng !== null && lng !== undefined && !isNaN(parseFloat(lng));
+      const dest = hasCoords ? `${parseFloat(lat)},${parseFloat(lng)}` : encodeURIComponent(address || "");
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${dest}`, "_blank");
+    }
+
+    function renderDriverRideHistory(historyList = []) {
+      const historyEl = document.getElementById("driverRideHistoryContainer");
+      if (!historyEl) return;
+      if (!Array.isArray(historyList) || historyList.length === 0) {
+        historyEl.innerHTML = `<div class="card-box text-center text-muted py-3 small">No past rides yet.</div>`;
+        return;
+      }
+
+      historyEl.innerHTML = historyList.map(ride => {
+        const pickupText = typeof ride.pickup === "object" ? (ride.pickup?.address || "") : (ride.pickup || "");
+        const dropText = typeof ride.drop === "object" ? (ride.drop?.address || "") : (ride.drop || "");
+        const dateLabel = ride.createdAt ? new Date(ride.createdAt).toLocaleDateString() : "";
+        const isCompleted = String(ride.status || "").toUpperCase() === "COMPLETED";
+        const badgeClass = isCompleted ? "bg-success" : "bg-secondary";
+
+        return `
+          <div class="card-box py-3 mb-2">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <div class="d-flex align-items-center gap-2">
+                <span class="fw-bold small">${ride.bookingId || ""}</span>
+                <span class="badge ${badgeClass}">${ride.status || ""}</span>
+              </div>
+              <span class="fw-bold text-success">₹${ride.fare ?? 0}</span>
+            </div>
+            <div class="small text-muted mb-1">${dateLabel}</div>
+            <div class="small mb-1"><i class="fas fa-circle text-success me-1"></i> ${pickupText}</div>
+            <div class="small"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${dropText}</div>
+          </div>
+        `;
+      }).join("");
     }
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -734,8 +733,17 @@
       }
     }
 
-    function logoutDriver() {
-      sendKeepaliveOffline(false);
+    async function logoutDriver() {
+      if (currentDriver && currentDriver.driverId && currentDriver.onlineStatus === "ONLINE") {
+        try {
+          await callApi({
+            action: "updateDriverStatus",
+            driverId: currentDriver.driverId,
+            status: "OFFLINE",
+            lastSeen: Date.now()
+          });
+        } catch (e) {}
+      }
       clearRideNotifications();
       localStorage.removeItem("btx_driver");
       if (feedPollingTimer) clearInterval(feedPollingTimer);
@@ -756,6 +764,7 @@
       document.getElementById("drvProfName").innerText = currentDriver.name;
       document.getElementById("drvProfMobile").innerText = currentDriver.mobile;
       document.getElementById("drvProfStatus").innerText = currentDriver.approvalStatus;
+      document.getElementById("statRating").innerText = Number(currentDriver.rating || 5).toFixed(1);
       document.getElementById("drvProfVehicleBadge").innerHTML = `
         ${getVehicleSymbolHtml(drvVType, 32, false)}
         <span class="fw-bold small text-dark">${drvVType}${drvVModel ? ` • ${drvVModel}` : ""}${drvVNo ? ` (${drvVNo})` : ""}</span>
@@ -764,6 +773,15 @@
       if (currentDriver.approvalStatus !== "APPROVED") {
         document.getElementById("approvalPendingBanner").classList.remove("hidden-section");
         document.getElementById("onlineToggleContainer").classList.add("hidden-section");
+      } else if (currentDriver.onlineStatus === "ONLINE") {
+        const sw = document.getElementById("onlineSwitch");
+        sw.checked = true;
+        document.getElementById("statusTitleText").innerText = "You are ONLINE";
+        document.getElementById("statusSubText").innerText = "Searching for nearby ride requests...";
+        seenRequestIds.clear();
+        requestNotificationPermission();
+        startLocationBroadcasting();
+        startFeedPolling();
       }
 
       initDriverMap();
@@ -809,6 +827,7 @@
 
       if (res.success) {
         currentDriver.onlineStatus = status;
+        localStorage.setItem("btx_driver", JSON.stringify(currentDriver));
         document.getElementById("statusTitleText").innerText = status === "ONLINE" ? "You are ONLINE" : "You are OFFLINE";
         document.getElementById("statusSubText").innerText = status === "ONLINE" ? "Searching for nearby ride requests..." : "Go online to receive rides";
 
@@ -860,12 +879,15 @@
       const res = await callApi({ action: "getDriverBookings", driverId: currentDriver.driverId, vehicleType: currentDriver.vehicle?.type || "Bike" });
       if (!res.success || !res.data) return;
 
-      const { incomingRequests = [], activeRide: ongoing } = res.data;
+      const { incomingRequests = [], activeRide: ongoing, history = [] } = res.data;
+      renderDriverRideHistory(history);
+
+      const visibleRequests = incomingRequests.filter(r => !rejectedBookingIds.has(String(r.bookingId)));
       const container = document.getElementById("rideFeedContainer");
 
       // Nayi incoming ride aane par ek baar sound + persistent notification alert bajayein
-      const currentIds = new Set(incomingRequests.map(r => String(r.bookingId)));
-      incomingRequests.forEach(req => {
+      const currentIds = new Set(visibleRequests.map(r => String(r.bookingId)));
+      visibleRequests.forEach(req => {
         const reqId = String(req.bookingId);
         if (!seenRequestIds.has(reqId)) {
           seenRequestIds.add(reqId);
@@ -874,7 +896,7 @@
           }
         }
       });
-      // Jo requests expire/cancel ho gayi unhe set aur active notifications se hata dein
+      // Jo requests expire/cancel/reject ho gayi unhe set aur active notifications se hata dein
       const expiredIds = [];
       for (const oldId of seenRequestIds) {
         if (!currentIds.has(oldId)) {
@@ -897,6 +919,10 @@
 
         const savedOtpValue = existingOtpInput ? existingOtpInput.value : "";
         const hadFocus = existingOtpInput && document.activeElement === existingOtpInput;
+        const pLat = ongoing.pickup?.lat ?? "";
+        const pLng = ongoing.pickup?.lng ?? "";
+        const dLat = ongoing.drop?.lat ?? "";
+        const dLng = ongoing.drop?.lng ?? "";
 
         container.innerHTML = `
           <div class="card-box border-warning border-2">
@@ -909,7 +935,19 @@
             </div>
             <div class="small mb-1"><strong>Customer:</strong> ${ongoing.customerName} (<a href="tel:${ongoing.customerMobile}">${ongoing.customerMobile}</a>)</div>
             <div class="small mb-1"><i class="fas fa-circle text-success me-1"></i> ${ongoing.pickup.address}</div>
-            <div class="small mb-3"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${ongoing.drop.address}</div>
+            <div class="small mb-2"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${ongoing.drop.address}</div>
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <button type="button" class="btn btn-outline-primary btn-sm w-100 rounded-3 fw-bold" onclick="openMapsNavigation('${pLat}', '${pLng}', '${encodeURIComponent(ongoing.pickup.address || '')}')">
+                  <i class="fas fa-location-arrow me-1"></i> Pickup Map
+                </button>
+              </div>
+              <div class="col-6">
+                <button type="button" class="btn btn-outline-dark btn-sm w-100 rounded-3 fw-bold" onclick="openMapsNavigation('${dLat}', '${dLng}', '${encodeURIComponent(ongoing.drop.address || '')}')">
+                  <i class="fas fa-route me-1"></i> Drop Map
+                </button>
+              </div>
+            </div>
             
             ${ongoing.status === 'ACCEPTED' ? `<button class="btn btn-dark w-100 mb-2 rounded-3 fw-bold" onclick="updateRideStatus('${ongoing.bookingId}', 'ARRIVED')">Reached Pickup Location</button>` : ''}
             ${ongoing.status === 'ARRIVED' ? `
@@ -928,10 +966,10 @@
         }
       } else {
         activeRide = null;
-        if (incomingRequests.length === 0) {
+        if (visibleRequests.length === 0) {
           container.innerHTML = `<div class="card-box text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-warning me-2"></div>Looking for nearby ride requests...</div>`;
         } else {
-          container.innerHTML = incomingRequests.map(req => `
+          container.innerHTML = visibleRequests.map(req => `
             <div class="card-box border-warning">
               <div class="d-flex justify-content-between align-items-center mb-2">
                 <div class="d-flex align-items-center gap-2">
@@ -967,6 +1005,7 @@
     }
 
     async function rejectRide(bookingId) {
+      rejectedBookingIds.add(String(bookingId));
       clearRideNotifications([bookingId]);
       fetchDriverFeed();
     }
