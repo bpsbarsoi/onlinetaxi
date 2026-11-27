@@ -36,75 +36,6 @@
       display: flex; align-items: center; justify-content: space-between;
       position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.15);
     }
-    .header-left { display: flex; align-items: center; gap: 10px; }
-    .hamburger-btn {
-      background: rgba(255,255,255,0.08); border: 1px solid rgba(250,204,21,0.35);
-      color: var(--primary); width: 36px; height: 36px; border-radius: 9px;
-      display: inline-flex; align-items: center; justify-content: center;
-      cursor: pointer; font-size: 1.05rem; transition: background 0.15s ease;
-    }
-    .hamburger-btn:hover { background: rgba(250,204,21,0.18); }
-
-    /* Slide-out Left Drawer (2nd Screenshot Style) */
-    .side-drawer-backdrop {
-      position: fixed; inset: 0; background: rgba(0, 0, 0, 0.52);
-      z-index: 2400; transition: opacity 0.25s ease;
-    }
-    .side-drawer {
-  position: fixed; top: 0; left: 0; bottom: 0;
-  width: 68%; max-width: 250px; background: #ffffff;
-  z-index: 2500; display: flex; flex-direction: column;
-  box-shadow: 6px 0 24px rgba(0, 0, 0, 0.25);
-  transform: translateX(0); transition: transform 0.25s ease;
-}
-    .side-drawer.drawer-closed {
-      transform: translateX(-100%);
-    }
-    .side-drawer-top {
-      padding: 16px 18px 14px; border-bottom: 1px solid #e5e7eb;
-    }
-    .side-drawer-close-btn {
-      background: none; border: none; color: #111827;
-      font-size: 1.25rem; padding: 4px 8px 4px 0; margin-bottom: 10px;
-      cursor: pointer; display: inline-flex; align-items: center;
-    }
-    .side-drawer-brand {
-      font-size: 1.12rem; font-weight: 800; color: #ea580c;
-      letter-spacing: 0.2px; line-height: 1.25;
-    }
-    .side-drawer-sub {
-      font-size: 0.78rem; color: #6b7280; margin-top: 2px;
-    }
-    .side-drawer-list {
-      flex: 1; overflow-y: auto; padding: 8px 0;
-    }
-    .side-drawer-link {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 13px 18px; color: #1f2937; text-decoration: none;
-      font-size: 0.96rem; font-weight: 600; transition: background 0.15s ease;
-    }
-    .side-drawer-link:hover {
-      background: #f9fafb; color: #111827;
-    }
-    .side-drawer-link-left {
-      display: flex; align-items: center; gap: 14px;
-    }
-    .side-drawer-icon {
-      width: 22px; text-align: center; font-size: 1rem;
-    }
-    .icon-enquiry { color: #ea580c; }
-    .icon-feedback { color: #111827; }
-    .icon-help { color: #0284c7; }
-    .icon-plan { color: #10b981; }
-    .side-drawer-trailing {
-      font-size: 0.78rem; color: #9ca3af;
-    }
-    .side-drawer-footer {
-      background: #f59e0b; color: #ffffff;
-      text-align: center; font-size: 0.76rem; font-weight: 600;
-      padding: 9px 12px;
-    }
-
     .brand-title { font-weight: 800; font-size: 1.15rem; display: flex; align-items: center; gap: 8px; color: var(--primary); }
     .brand-title img { width: 30px; height: 30px; border-radius: 6px; background: #fff; padding: 2px; }
 
@@ -158,71 +89,15 @@
 
   <!-- TOP HEADER -->
   <header class="app-header">
-    <div class="header-left">
-      <button type="button" class="hamburger-btn" id="hamburgerBtn" aria-label="Open Menu" onclick="openHamburgerDrawer(event)">
-        <i class="fas fa-bars"></i>
-      </button>
-
-      <div class="brand-title">
-        <img src="https://cdn-icons-png.flaticon.com/512/3198/3198336.png" alt="Logo" />
-        <span>RYZRIDE Captain</span>
-      </div>
+    <div class="brand-title">
+      <img src="https://cdn-icons-png.flaticon.com/512/3198/3198336.png" alt="Logo" />
+      <span>RYZRIDE Captain</span>
     </div>
     <div id="headerDriverBadge" class="hidden-section">
       <span class="badge bg-warning text-dark me-1" id="headerDriverName">Captain</span>
       <button class="btn btn-sm btn-outline-light py-0 px-2" onclick="logoutDriver()"><i class="fas fa-sign-out-alt"></i></button>
     </div>
   </header>
-
-  <!-- LEFT SLIDE-OUT DRAWER BACKDROP & PANEL -->
-  <div id="sideDrawerBackdrop" class="side-drawer-backdrop hidden-section" onclick="closeHamburgerDrawer()"></div>
-  <aside id="sideDrawer" class="side-drawer drawer-closed" aria-label="Sidebar Navigation" onclick="event.stopPropagation()">
-    <div class="side-drawer-top">
-      <button type="button" class="side-drawer-close-btn" aria-label="Close Menu" onclick="closeHamburgerDrawer()">
-        <i class="fas fa-bars"></i>
-      </button>
-      <div class="side-drawer-brand">RYZRIDE CAPTAIN</div>
-      <div class="side-drawer-sub">Barsoi, Katihar • Captain Portal</div>
-    </div>
-
-    <div class="side-drawer-list">
-      <a href="mailto:riyazahmadkne@gmail.com?subject=RYZRIDE%20Captain%20Enquiry" class="side-drawer-link" onclick="closeHamburgerDrawer()">
-        <span class="side-drawer-link-left">
-          <i class="fas fa-envelope-open-text side-drawer-icon icon-enquiry"></i>
-          <span>1. Enquiry</span>
-        </span>
-        <i class="fas fa-paper-plane side-drawer-trailing"></i>
-      </a>
-
-      <a href="mailto:riyazahmadkne@gmail.com?subject=RYZRIDE%20Captain%20Feedback" class="side-drawer-link" onclick="closeHamburgerDrawer()">
-        <span class="side-drawer-link-left">
-          <i class="fas fa-comment-dots side-drawer-icon icon-feedback"></i>
-          <span>2. Feedback</span>
-        </span>
-        <i class="fas fa-paper-plane side-drawer-trailing"></i>
-      </a>
-
-      <a href="?page=help" class="side-drawer-link" onclick="closeHamburgerDrawer()">
-        <span class="side-drawer-link-left">
-          <i class="fas fa-life-ring side-drawer-icon icon-help"></i>
-          <span>3. Help</span>
-        </span>
-        <i class="fas fa-chevron-right side-drawer-trailing"></i>
-      </a>
-
-      <a href="?page=buy-plan" class="side-drawer-link" onclick="closeHamburgerDrawer()">
-        <span class="side-drawer-link-left">
-          <i class="fas fa-tags side-drawer-icon icon-plan"></i>
-          <span>4. Buy Plan</span>
-        </span>
-        <i class="fas fa-chevron-right side-drawer-trailing"></i>
-      </a>
-    </div>
-
-    <div class="side-drawer-footer">
-      Created, Designed &amp; Developed by Riyaz Ahmad
-    </div>
-  </aside>
 
   <div class="app-container">
 
@@ -343,6 +218,14 @@
         </div>
       </div>
 
+      <!-- COMPLETED RIDE HISTORY -->
+      <div class="mt-3">
+        <h6 class="fw-bold mb-2">Completed Ride History</h6>
+        <div id="driverRideHistoryContainer">
+          <div class="card-box text-center text-muted py-3 small">No past rides yet.</div>
+        </div>
+      </div>
+
     </div>
 
     <!-- ==================== 3. EARNINGS & WALLET SECTION ==================== -->
@@ -381,7 +264,7 @@
 
   <script>
     const CONFIG = {
-      API_URL: "https://script.google.com/macros/s/AKfycbw-TNJ5cgis_GoUp_hNSNDxhof3LPsxnlW3yGAaDNEbffrs2dRWOnFKQLEfq472ospF/exec",
+      API_URL: "https://script.google.com/macros/s/AKfycbwwaHPeQqplyTX-6o1YA_M-hA0BEgC-9Xl4N7uMFXM4JIBxgC3nOFDCCOpBr_aXvMaM/exec",
       POLLING_INTERVAL_MS: 5000,
       LOCATION_INTERVAL_MS: 6000
     };
@@ -392,16 +275,171 @@
     let locationWatchId = null;
     let feedPollingTimer = null;
     let activeRide = null;
+    let seenRequestIds = new Set();
+    let rejectedBookingIds = new Set();
+    let activeNotifications = new Map();
+    let audioCtx = null;
 
-    function openHamburgerDrawer(e) {
-      if (e) e.stopPropagation();
-      document.getElementById("sideDrawerBackdrop").classList.remove("hidden-section");
-      document.getElementById("sideDrawer").classList.remove("drawer-closed");
+    // ==================== SINGLE-SOUND PERSISTENT NOTIFICATION ALERT ====================
+    function hasNativeBridge() {
+      return Boolean(window.RyzRideNative && typeof window.RyzRideNative.onNewRide === "function");
     }
 
-    function closeHamburgerDrawer() {
-      document.getElementById("sideDrawer").classList.add("drawer-closed");
-      document.getElementById("sideDrawerBackdrop").classList.add("hidden-section");
+    async function requestNotificationPermission() {
+      try {
+        if (!hasNativeBridge() && "Notification" in window && Notification.permission === "default") {
+          await Notification.requestPermission();
+        }
+      } catch (e) {}
+    }
+
+    function unlockAudioAlert() {
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        if (!audioCtx) audioCtx = new AudioContextClass();
+        if (audioCtx.state === "suspended") audioCtx.resume();
+      } catch (e) {}
+    }
+
+    // Plays ONCE per new ride request
+    function playNewRideSound() {
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        if (!audioCtx) audioCtx = new AudioContextClass();
+        if (audioCtx.state === "suspended") audioCtx.resume();
+
+        const masterGain = audioCtx.createGain();
+        masterGain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+        masterGain.connect(audioCtx.destination);
+
+        const pattern = [
+          { freq: 1567.98, start: 0.00, duration: 0.14 },
+          { freq: 2093.00, start: 0.15, duration: 0.16 },
+          { freq: 1567.98, start: 0.34, duration: 0.14 },
+          { freq: 2093.00, start: 0.49, duration: 0.24 },
+          { freq: 2349.32, start: 0.78, duration: 0.32 }
+        ];
+
+        pattern.forEach(n => {
+          const osc1 = audioCtx.createOscillator();
+          const osc2 = audioCtx.createOscillator();
+          const noteGain = audioCtx.createGain();
+
+          osc1.type = "sawtooth";
+          osc2.type = "square";
+
+          osc1.frequency.setValueAtTime(n.freq, audioCtx.currentTime + n.start);
+          osc2.frequency.setValueAtTime(n.freq * 1.005, audioCtx.currentTime + n.start);
+
+          noteGain.gain.setValueAtTime(0.001, audioCtx.currentTime + n.start);
+          noteGain.gain.exponentialRampToValueAtTime(0.95, audioCtx.currentTime + n.start + 0.015);
+          noteGain.gain.setValueAtTime(0.90, audioCtx.currentTime + n.start + n.duration - 0.03);
+          noteGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + n.start + n.duration);
+
+          osc1.connect(noteGain);
+          osc2.connect(noteGain);
+          noteGain.connect(masterGain);
+
+          osc1.start(audioCtx.currentTime + n.start);
+          osc2.start(audioCtx.currentTime + n.start);
+          osc1.stop(audioCtx.currentTime + n.start + n.duration + 0.02);
+          osc2.stop(audioCtx.currentTime + n.start + n.duration + 0.02);
+        });
+      } catch (e) {}
+    }
+
+    function showPersistentRideNotification(req) {
+      const bookingId = String(req.bookingId || "");
+      const fare = String(req.fare ?? "0");
+      const vehicleType = String(req.vehicleType || "Ride");
+      const distanceKm = String(req.distanceKm ?? "");
+      const pickupAddress = String(req.pickup?.address || "");
+
+      if (hasNativeBridge()) {
+        try {
+          window.RyzRideNative.onNewRide(bookingId, fare, vehicleType, distanceKm, pickupAddress);
+        } catch (e) {}
+      }
+
+      try {
+        if ("Notification" in window && Notification.permission === "granted") {
+          if (activeNotifications.has(bookingId)) return;
+
+          const notif = new Notification(`🚨 New ride aayi! • ₹${fare}`, {
+            body: `${vehicleType} (${distanceKm} KM)\nPickup: ${pickupAddress}`,
+            icon: "https://cdn-icons-png.flaticon.com/512/3198/3198336.png",
+            tag: "ryzride-incoming-" + bookingId,
+            requireInteraction: true,
+            silent: true
+          });
+
+          notif.onclick = () => {
+            window.focus();
+            activeNotifications.delete(bookingId);
+            notif.close();
+          };
+          notif.onclose = () => {
+            activeNotifications.delete(bookingId);
+          };
+
+          activeNotifications.set(bookingId, notif);
+        }
+      } catch (e) {}
+    }
+
+    function clearRideNotifications(bookingIds = null) {
+      try {
+        if (window.RyzRideNative && typeof window.RyzRideNative.clearRideNotification === "function") {
+          if (!bookingIds) {
+            window.RyzRideNative.clearRideNotification("");
+          } else {
+            bookingIds.forEach(id => {
+              try { window.RyzRideNative.clearRideNotification(String(id)); } catch (e) {}
+            });
+          }
+        }
+      } catch (e) {}
+
+      try {
+        if (!bookingIds) {
+          activeNotifications.forEach(n => { try { n.close(); } catch (e) {} });
+          activeNotifications.clear();
+          return;
+        }
+        bookingIds.forEach(id => {
+          const key = String(id);
+          const n = activeNotifications.get(key);
+          if (n) {
+            try { n.close(); } catch (e) {}
+            activeNotifications.delete(key);
+          }
+        });
+      } catch (e) {}
+    }
+
+    function triggerNewRideAlert(req) {
+      playNewRideSound();
+      if (navigator.vibrate) {
+        try { navigator.vibrate([200, 100, 200]); } catch (e) {}
+      }
+      showPersistentRideNotification(req);
+
+      Swal.fire({
+        icon: "info",
+        title: "New ride aayi",
+        html: `
+          <div class="text-start small">
+            <div><b>Fare:</b> ₹${req.fare ?? "0"}</div>
+            <div><b>Vehicle:</b> ${req.vehicleType || "Ride"} (${req.distanceKm ?? ""} KM)</div>
+            <div><b>Pickup:</b> ${req.pickup?.address || ""}</div>
+          </div>
+        `,
+        confirmButtonText: "OK",
+        allowOutsideClick: false,
+        allowEscapeKey: false
+      });
     }
 
     // ==================== PREMIUM OLA / UBER / RAPIDO STYLE VEHICLE ICONS ====================
@@ -412,7 +450,6 @@
         ? "display:flex;align-items:center;justify-content:center;"
         : "display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;";
 
-      // 1. CAR / CAB (UberGo / Ola Mini 3D White Sedan)
       if (t.includes("car") || t.includes("cab") || t.includes("sedan") || t.includes("suv") || t.includes("taxi")) {
         return `<div style="${wrapStyle}">
           <svg viewBox="0 0 96 64" width="${px * 1.35}" height="${px}" style="filter:drop-shadow(0 4px 6px rgba(17,24,39,0.18));" aria-hidden="true">
@@ -450,7 +487,6 @@
         </div>`;
       }
 
-      // 2. E-RIKSHAW / TOTO (Modern Blue & Silver Passenger E-Rickshaw)
       if (t.includes("e-rik") || t.includes("erik") || t.includes("toto")) {
         return `<div style="${wrapStyle}">
           <svg viewBox="0 0 96 64" width="${px * 1.3}" height="${px}" style="filter:drop-shadow(0 4px 6px rgba(17,24,39,0.18));" aria-hidden="true">
@@ -486,7 +522,6 @@
         </div>`;
       }
 
-      // 3. AUTO RICKSHAW (Ola / Uber / Rapido Iconic Green & Yellow 3-Wheeler)
       if (t.includes("auto") || t.includes("rikshaw") || t.includes("rickshaw")) {
         return `<div style="${wrapStyle}">
           <svg viewBox="0 0 96 64" width="${px * 1.3}" height="${px}" style="filter:drop-shadow(0 4px 6px rgba(17,24,39,0.18));" aria-hidden="true">
@@ -519,7 +554,6 @@
         </div>`;
       }
 
-      // 4. SCOOTER (Sleek Modern Electric / Urban Scooter)
       if (t.includes("scoot")) {
         return `<div style="${wrapStyle}">
           <svg viewBox="0 0 96 64" width="${px * 1.3}" height="${px}" style="filter:drop-shadow(0 4px 6px rgba(17,24,39,0.18));" aria-hidden="true">
@@ -545,7 +579,6 @@
         </div>`;
       }
 
-            // 5. BIKE / MOTO (SVG Repo Noto Emoji Motorcycle)
       const bikePx = isMapPin ? 28 : Math.round(px * 1.15);
       return `<div style="${wrapStyle}">
         <svg viewBox="0 0 128 128" width="${bikePx}" height="${bikePx}" style="display:block;filter:drop-shadow(0 5px 8px rgba(17,24,39,0.18));" aria-hidden="true">
@@ -591,7 +624,47 @@
       });
     }
 
+    function openMapsNavigation(lat, lng, address = "") {
+      const hasCoords = lat !== "" && lat !== null && lat !== undefined && !isNaN(parseFloat(lat)) &&
+                        lng !== "" && lng !== null && lng !== undefined && !isNaN(parseFloat(lng));
+      const dest = hasCoords ? `${parseFloat(lat)},${parseFloat(lng)}` : encodeURIComponent(address || "");
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${dest}`, "_blank");
+    }
+
+    function renderDriverRideHistory(historyList = []) {
+      const historyEl = document.getElementById("driverRideHistoryContainer");
+      if (!historyEl) return;
+      if (!Array.isArray(historyList) || historyList.length === 0) {
+        historyEl.innerHTML = `<div class="card-box text-center text-muted py-3 small">No past rides yet.</div>`;
+        return;
+      }
+
+      historyEl.innerHTML = historyList.map(ride => {
+        const pickupText = typeof ride.pickup === "object" ? (ride.pickup?.address || "") : (ride.pickup || "");
+        const dropText = typeof ride.drop === "object" ? (ride.drop?.address || "") : (ride.drop || "");
+        const dateLabel = ride.createdAt ? new Date(ride.createdAt).toLocaleDateString() : "";
+        const isCompleted = String(ride.status || "").toUpperCase() === "COMPLETED";
+        const badgeClass = isCompleted ? "bg-success" : "bg-secondary";
+
+        return `
+          <div class="card-box py-3 mb-2">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <div class="d-flex align-items-center gap-2">
+                <span class="fw-bold small">${ride.bookingId || ""}</span>
+                <span class="badge ${badgeClass}">${ride.status || ""}</span>
+              </div>
+              <span class="fw-bold text-success">₹${ride.fare ?? 0}</span>
+            </div>
+            <div class="small text-muted mb-1">${dateLabel}</div>
+            <div class="small mb-1"><i class="fas fa-circle text-success me-1"></i> ${pickupText}</div>
+            <div class="small"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${dropText}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
+      document.addEventListener("pointerdown", unlockAudioAlert, { passive: true });
       updateRegVehiclePreview();
       const saved = localStorage.getItem("btx_driver");
       if (saved) {
@@ -643,6 +716,7 @@
 
     async function handleDriverLogin(e) {
       e.preventDefault();
+      unlockAudioAlert();
       Swal.showLoading();
       const res = await callApi({
         action: "driverLogin",
@@ -659,7 +733,18 @@
       }
     }
 
-    function logoutDriver() {
+    async function logoutDriver() {
+      if (currentDriver && currentDriver.driverId && currentDriver.onlineStatus === "ONLINE") {
+        try {
+          await callApi({
+            action: "updateDriverStatus",
+            driverId: currentDriver.driverId,
+            status: "OFFLINE",
+            lastSeen: Date.now()
+          });
+        } catch (e) {}
+      }
+      clearRideNotifications();
       localStorage.removeItem("btx_driver");
       if (feedPollingTimer) clearInterval(feedPollingTimer);
       if (locationWatchId) navigator.geolocation.clearWatch(locationWatchId);
@@ -679,6 +764,7 @@
       document.getElementById("drvProfName").innerText = currentDriver.name;
       document.getElementById("drvProfMobile").innerText = currentDriver.mobile;
       document.getElementById("drvProfStatus").innerText = currentDriver.approvalStatus;
+      document.getElementById("statRating").innerText = Number(currentDriver.rating || 5).toFixed(1);
       document.getElementById("drvProfVehicleBadge").innerHTML = `
         ${getVehicleSymbolHtml(drvVType, 32, false)}
         <span class="fw-bold small text-dark">${drvVType}${drvVModel ? ` • ${drvVModel}` : ""}${drvVNo ? ` (${drvVNo})` : ""}</span>
@@ -687,6 +773,15 @@
       if (currentDriver.approvalStatus !== "APPROVED") {
         document.getElementById("approvalPendingBanner").classList.remove("hidden-section");
         document.getElementById("onlineToggleContainer").classList.add("hidden-section");
+      } else if (currentDriver.onlineStatus === "ONLINE") {
+        const sw = document.getElementById("onlineSwitch");
+        sw.checked = true;
+        document.getElementById("statusTitleText").innerText = "You are ONLINE";
+        document.getElementById("statusSubText").innerText = "Searching for nearby ride requests...";
+        seenRequestIds.clear();
+        requestNotificationPermission();
+        startLocationBroadcasting();
+        startFeedPolling();
       }
 
       initDriverMap();
@@ -719,22 +814,33 @@
     }
 
     async function toggleOnlineStatus(sw) {
+      unlockAudioAlert();
       const status = sw.checked ? "ONLINE" : "OFFLINE";
       Swal.showLoading();
-      const res = await callApi({ action: "updateDriverStatus", driverId: currentDriver.driverId, status });
+      const res = await callApi({
+        action: "updateDriverStatus",
+        driverId: currentDriver.driverId,
+        status,
+        lastSeen: Date.now()
+      });
       Swal.close();
 
       if (res.success) {
         currentDriver.onlineStatus = status;
+        localStorage.setItem("btx_driver", JSON.stringify(currentDriver));
         document.getElementById("statusTitleText").innerText = status === "ONLINE" ? "You are ONLINE" : "You are OFFLINE";
         document.getElementById("statusSubText").innerText = status === "ONLINE" ? "Searching for nearby ride requests..." : "Go online to receive rides";
 
         if (status === "ONLINE") {
+          seenRequestIds.clear();
+          requestNotificationPermission();
           startLocationBroadcasting();
           startFeedPolling();
         } else {
+          clearRideNotifications();
           if (locationWatchId) navigator.geolocation.clearWatch(locationWatchId);
           if (feedPollingTimer) clearInterval(feedPollingTimer);
+          seenRequestIds.clear();
           document.getElementById("rideFeedContainer").innerHTML = `<div class="card-box text-center text-muted py-4"><p class="mb-0">You are offline.</p></div>`;
         }
       } else {
@@ -756,6 +862,7 @@
           action: "updateDriverLocation",
           driverId: currentDriver.driverId,
           lat, lng,
+          lastSeen: Date.now(),
           bookingId: activeRide ? activeRide.bookingId : ""
         });
       }, err => console.error(err), { enableHighAccuracy: true });
@@ -772,11 +879,51 @@
       const res = await callApi({ action: "getDriverBookings", driverId: currentDriver.driverId, vehicleType: currentDriver.vehicle?.type || "Bike" });
       if (!res.success || !res.data) return;
 
-      const { incomingRequests, activeRide: ongoing } = res.data;
+      const { incomingRequests = [], activeRide: ongoing, history = [] } = res.data;
+      renderDriverRideHistory(history);
+
+      const visibleRequests = incomingRequests.filter(r => !rejectedBookingIds.has(String(r.bookingId)));
       const container = document.getElementById("rideFeedContainer");
 
+      // Nayi incoming ride aane par ek baar sound + persistent notification alert bajayein
+      const currentIds = new Set(visibleRequests.map(r => String(r.bookingId)));
+      visibleRequests.forEach(req => {
+        const reqId = String(req.bookingId);
+        if (!seenRequestIds.has(reqId)) {
+          seenRequestIds.add(reqId);
+          if (!ongoing) {
+            triggerNewRideAlert(req);
+          }
+        }
+      });
+      // Jo requests expire/cancel/reject ho gayi unhe set aur active notifications se hata dein
+      const expiredIds = [];
+      for (const oldId of seenRequestIds) {
+        if (!currentIds.has(oldId)) {
+          seenRequestIds.delete(oldId);
+          expiredIds.push(oldId);
+        }
+      }
+      if (expiredIds.length > 0) clearRideNotifications(expiredIds);
+
       if (ongoing) {
+        const prevBookingId = activeRide ? activeRide.bookingId : null;
+        const prevStatus = activeRide ? activeRide.status : null;
         activeRide = ongoing;
+
+        const existingOtpInput = document.getElementById("otpInput");
+        const isTypingOtp = existingOtpInput && (document.activeElement === existingOtpInput || existingOtpInput.value.trim().length > 0);
+        if (prevBookingId === ongoing.bookingId && prevStatus === ongoing.status && existingOtpInput && isTypingOtp) {
+          return;
+        }
+
+        const savedOtpValue = existingOtpInput ? existingOtpInput.value : "";
+        const hadFocus = existingOtpInput && document.activeElement === existingOtpInput;
+        const pLat = ongoing.pickup?.lat ?? "";
+        const pLng = ongoing.pickup?.lng ?? "";
+        const dLat = ongoing.drop?.lat ?? "";
+        const dLng = ongoing.drop?.lng ?? "";
+
         container.innerHTML = `
           <div class="card-box border-warning border-2">
             <div class="d-flex justify-content-between align-items-center mb-2">
@@ -788,23 +935,41 @@
             </div>
             <div class="small mb-1"><strong>Customer:</strong> ${ongoing.customerName} (<a href="tel:${ongoing.customerMobile}">${ongoing.customerMobile}</a>)</div>
             <div class="small mb-1"><i class="fas fa-circle text-success me-1"></i> ${ongoing.pickup.address}</div>
-            <div class="small mb-3"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${ongoing.drop.address}</div>
+            <div class="small mb-2"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${ongoing.drop.address}</div>
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <button type="button" class="btn btn-outline-primary btn-sm w-100 rounded-3 fw-bold" onclick="openMapsNavigation('${pLat}', '${pLng}', '${encodeURIComponent(ongoing.pickup.address || '')}')">
+                  <i class="fas fa-location-arrow me-1"></i> Pickup Map
+                </button>
+              </div>
+              <div class="col-6">
+                <button type="button" class="btn btn-outline-dark btn-sm w-100 rounded-3 fw-bold" onclick="openMapsNavigation('${dLat}', '${dLng}', '${encodeURIComponent(ongoing.drop.address || '')}')">
+                  <i class="fas fa-route me-1"></i> Drop Map
+                </button>
+              </div>
+            </div>
             
             ${ongoing.status === 'ACCEPTED' ? `<button class="btn btn-dark w-100 mb-2 rounded-3 fw-bold" onclick="updateRideStatus('${ongoing.bookingId}', 'ARRIVED')">Reached Pickup Location</button>` : ''}
             ${ongoing.status === 'ARRIVED' ? `
               <div class="input-group mb-2">
-                <input type="number" id="otpInput" class="form-control rounded-start-3" placeholder="Enter 4-digit OTP" />
+                <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="otpInput" class="form-control rounded-start-3" placeholder="Enter 4-digit OTP" />
                 <button class="btn btn-success fw-bold rounded-end-3" onclick="startRideWithOtp('${ongoing.bookingId}')">Start Ride</button>
               </div>` : ''}
             ${ongoing.status === 'STARTED' ? `<button class="btn btn-danger w-100 fw-bold rounded-3" onclick="completeRideAction('${ongoing.bookingId}')"><i class="fas fa-flag-checkered me-1"></i> Complete Ride</button>` : ''}
           </div>
         `;
+
+        const newOtpInput = document.getElementById("otpInput");
+        if (newOtpInput && savedOtpValue) {
+          newOtpInput.value = savedOtpValue;
+          if (hadFocus) newOtpInput.focus();
+        }
       } else {
         activeRide = null;
-        if (incomingRequests.length === 0) {
+        if (visibleRequests.length === 0) {
           container.innerHTML = `<div class="card-box text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-warning me-2"></div>Looking for nearby ride requests...</div>`;
         } else {
-          container.innerHTML = incomingRequests.map(req => `
+          container.innerHTML = visibleRequests.map(req => `
             <div class="card-box border-warning">
               <div class="d-flex justify-content-between align-items-center mb-2">
                 <div class="d-flex align-items-center gap-2">
@@ -826,6 +991,8 @@
     }
 
     async function acceptRide(bookingId) {
+      unlockAudioAlert();
+      clearRideNotifications([bookingId]);
       Swal.showLoading();
       const res = await callApi({ action: "acceptBooking", bookingId, driverId: currentDriver.driverId });
       Swal.close();
@@ -837,7 +1004,11 @@
       }
     }
 
-    async function rejectRide(bookingId) { fetchDriverFeed(); }
+    async function rejectRide(bookingId) {
+      rejectedBookingIds.add(String(bookingId));
+      clearRideNotifications([bookingId]);
+      fetchDriverFeed();
+    }
 
     async function updateRideStatus(bookingId, status) {
       const res = await callApi({ action: "updateBookingStatus", bookingId, driverId: currentDriver.driverId, status });
